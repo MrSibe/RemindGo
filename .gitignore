@@ -1,0 +1,109 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.iml
+bin/
+dist/
+build/
+RemindGo
+remindgo
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+coverage.html
+coverage.txt
+
+# Dependency directories
+vendor/
+
+# Go workspace file (不建议提交到版本控制)
+go.work
+go.work.sum
+
+# IDE - IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# IDE - VSCode
+.vscode/
+*.code-workspace
+
+# IDE - GoLand
+.idea_modules/
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*~
+
+# Environment variables and config files
+.env
+.env.local
+.env.*.local
+config.local.yaml
+config.local.yml
+config.local.json
+
+# Log files
+*.log
+logs/
+log/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak
+*.swp
+*.swo
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Debug files
+debug
+__debug_bin
+
+# Air - Live reload for Go apps
+tmp/
+
+# Compiled Object files, Static and Dynamic libs
+*.o
+*.a
+
+# Architecture specific extensions/prefixes
+*.[568vq]
+[568vq].out
+
+# cgo generated files
+_cgo_*
+_testmain.go
+
+# Output of go build for different platforms
+*-darwin-*
+*-linux-*
+*-windows-*
+
+# API documentation (if auto-generated)
+docs/swagger/
+
+# Certificates and keys (安全起见)
+*.pem
+*.key
+*.crt
+*.cert

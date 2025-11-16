@@ -1,0 +1,851 @@
+openapi: 3.0.3
+info:
+  title: 备忘录API服务
+  description: |
+    FanOne寒假备忘录API服务 - 基于Hertz/Gin框架的RESTful API
+    
+    主要功能：
+    - 用户注册登录（JWT认证）
+    - 待办事项的增删改查
+    - 关键词搜索和分页查询
+    - 批量操作支持
+    
+    认证方式：
+    - Bearer Token (JWT)
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@memoapp.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8080/api/v1
+    description: 开发环境
+  - url: https://api.memoapp.com/v1
+    description: 生产环境
+
+security:
+  - BearerAuth: []
+
+paths:
+  # 用户认证相关
+  /auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: 用户注册
+      description: 创建新用户账户
+      security: []  # 不需要认证
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: 注册成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: 用户名或邮箱已存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: 用户登录
+      description: 用户登录获取JWT令牌
+      security: []  # 不需要认证
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: 登录成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: 用户名或密码错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: 用户登出
+      description: 用户登出（使token失效）
+      responses:
+        '200':
+          description: 登出成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          description: 未认证
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # 用户相关
+  /users/profile:
+    get:
+      tags:
+        - User
+      summary: 获取用户信息
+      description: 获取当前登录用户的基本信息
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfileResponse'
+        '401':
+          description: 未认证
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      tags:
+        - User
+      summary: 更新用户信息
+      description: 更新当前用户的基本信息
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfileResponse'
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: 未认证
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # 待办事项相关
+  /todos:
+    get:
+      tags:
+        - Todo
+      summary: 获取待办事项列表
+      description: |
+        获取当前用户的待办事项列表，支持分页和状态过滤
+        
+        状态过滤：
+        - all: 所有事项
+        - pending: 待办事项
+        - completed: 已完成事项
+      parameters:
+        - name: status
+          in: query
+          description: 事项状态过滤
+          required: false
+          schema:
+            type: string
+            enum: [all, pending, completed]
+            default: all
+        - name: page
+          in: query
+          description: 页码（从1开始）
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: page_size
+          in: query
+          description: 每页条数
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+        - name: keyword
+          in: query
+          description: 搜索关键词（标题或内容）
+          required: false
+          schema:
+            type: string
+            maxLength: 100
+        - name: sort_by
+          in: query
+          description: 排序字段
+          required: false
+          schema:
+            type: string
+            enum: [created_at, updated_at, deadline, title]
+            default: created_at
+        - name: sort_order
+          in: query
+          description: 排序方式
+          required: false
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TodoListResponse'
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: 未认证
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      tags:
+        - Todo
+      summary: 创建待办事项
+      description: 创建新的待办事项
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTodoRequest'
+      responses:
+        '201':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TodoResponse'
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: 未认证
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /todos/{id}:
+    get:
+      tags:
+        - Todo
+      summary: 获取单个待办事项
+      description: 根据ID获取待办事项详情
+      parameters:
+        - name: id
+          in: path
+          description: 待办事项ID
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TodoResponse'
+        '401':
+          description: 未认证
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: 待办事项不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      tags:
+        - Todo
+      summary: 更新待办事项
+      description: 更新待办事项信息
+      parameters:
+        - name: id
+          in: path
+          description: 待办事项ID
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTodoRequest'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TodoResponse'
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: 未认证
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: 待办事项不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags:
+        - Todo
+      summary: 删除待办事项
+      description: 删除指定待办事项
+      parameters:
+        - name: id
+          in: path
+          description: 待办事项ID
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: 删除成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          description: 未认证
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: 待办事项不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /todos/{id}/toggle:
+    patch:
+      tags:
+        - Todo
+      summary: 切换待办事项状态
+      description: 将待办事项状态切换（待办↔已完成）
+      parameters:
+        - name: id
+          in: path
+          description: 待办事项ID
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: 切换成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TodoResponse'
+        '401':
+          description: 未认证
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: 待办事项不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # 批量操作
+  /todos/batch/complete:
+    patch:
+      tags:
+        - Todo
+      summary: 批量完成所有待办事项
+      description: 将所有待办事项标记为已完成
+      responses:
+        '200':
+          description: 批量操作成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchOperationResponse'
+        '401':
+          description: 未认证
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /todos/batch/pending:
+    patch:
+      tags:
+        - Todo
+      summary: 批量重置所有已完成事项
+      description: 将所有已完成事项重置为待办状态
+      responses:
+        '200':
+          description: 批量操作成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchOperationResponse'
+        '401':
+          description: 未认证
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /todos/batch/clear-completed:
+    delete:
+      tags:
+        - Todo
+      summary: 批量删除已完成事项
+      description: 删除所有已完成的待办事项
+      responses:
+        '200':
+          description: 批量删除成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchOperationResponse'
+        '401':
+          description: 未认证
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /todos/batch/clear-pending:
+    delete:
+      tags:
+        - Todo
+      summary: 批量删除待办事项
+      description: 删除所有待办的待办事项
+      responses:
+        '200':
+          description: 批量删除成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchOperationResponse'
+        '401':
+          description: 未认证
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # 统计相关
+  /todos/stats:
+    get:
+      tags:
+        - Todo
+      summary: 获取统计信息
+      description: 获取当前用户的待办事项统计信息
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TodoStatsResponse'
+        '401':
+          description: 未认证
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    # 基础响应模型
+    BaseResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+          description: HTTP状态码
+          example: 200
+        msg:
+          type: string
+          description: 返回消息
+          example: "ok"
+
+    ErrorResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              nullable: true
+              example: null
+      example:
+        status: 400
+        msg: "请求参数错误"
+        data: null
+
+    SuccessResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              nullable: true
+              example: null
+      example:
+        status: 200
+        msg: "操作成功"
+        data: null
+
+    # 认证相关模型
+    RegisterRequest:
+      type: object
+      required:
+        - username
+        - email
+        - password
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 50
+          pattern: "^[a-zA-Z0-9_]+$"
+          description: 用户名（字母、数字、下划线）
+          example: "fanone"
+        email:
+          type: string
+          format: email
+          maxLength: 100
+          description: 邮箱地址
+          example: "fanone@example.com"
+        password:
+          type: string
+          minLength: 6
+          maxLength: 50
+          description: 密码（至少6位）
+          example: "password123"
+
+    LoginRequest:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          description: 用户名或邮箱
+          example: "fanone"
+        password:
+          type: string
+          description: 密码
+          example: "password123"
+
+    AuthResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                token:
+                  type: string
+                  description: JWT访问令牌
+                  example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                user:
+                  $ref: '#/components/schemas/UserInfo'
+
+    UserInfo:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: 用户ID
+          example: 1
+        username:
+          type: string
+          description: 用户名
+          example: "fanone"
+        email:
+          type: string
+          format: email
+          description: 邮箱
+          example: "fanone@example.com"
+        created_at:
+          type: integer
+          description: 创建时间戳
+          example: 1638257438
+
+    # 用户相关模型
+    UpdateUserRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 50
+          pattern: "^[a-zA-Z0-9_]+$"
+          description: 用户名
+          example: "new_username"
+        email:
+          type: string
+          format: email
+          maxLength: 100
+          description: 邮箱地址
+          example: "newemail@example.com"
+
+    UserProfileResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/UserInfo'
+
+    # 待办事项相关模型
+    Todo:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: 待办事项ID
+          example: 1
+        title:
+          type: string
+          description: 标题
+          example: "学习Go语言"
+        content:
+          type: string
+          description: 内容
+          example: "完成Golang基础语法学习"
+        status:
+          type: integer
+          enum: [0, 1]
+          description: 状态（0-待办，1-已完成）
+          example: 0
+        created_at:
+          type: integer
+          description: 创建时间戳
+          example: 1638257438
+        updated_at:
+          type: integer
+          description: 更新时间戳
+          example: 1638257438
+        deadline:
+          type: integer
+          nullable: true
+          description: 截止时间戳
+          example: 1640995199
+        completed_at:
+          type: integer
+          nullable: true
+          description: 完成时间戳
+          example: null
+
+    CreateTodoRequest:
+      type: object
+      required:
+        - title
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: 标题
+          example: "学习Go语言"
+        content:
+          type: string
+          maxLength: 1000
+          description: 内容
+          example: "完成Golang基础语法学习"
+        deadline:
+          type: string
+          format: date-time
+          description: 截止时间（ISO 8601格式）
+          example: "2024-01-15T23:59:59Z"
+
+    UpdateTodoRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: 标题
+          example: "更新后的标题"
+        content:
+          type: string
+          maxLength: 1000
+          description: 内容
+          example: "更新后的内容"
+        deadline:
+          type: string
+          format: date-time
+          description: 截止时间（ISO 8601格式）
+          example: "2024-01-20T23:59:59Z"
+        status:
+          type: integer
+          enum: [0, 1]
+          description: 状态（0-待办，1-已完成）
+          example: 1
+
+    TodoResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/Todo'
+
+    TodoListResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/Todo'
+                total:
+                  type: integer
+                  description: 总条数
+                  example: 100
+                page:
+                  type: integer
+                  description: 当前页码
+                  example: 1
+                page_size:
+                  type: integer
+                  description: 每页条数
+                  example: 10
+                total_pages:
+                  type: integer
+                  description: 总页数
+                  example: 10
+
+    BatchOperationResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                affected_count:
+                  type: integer
+                  description: 影响的记录数
+                  example: 5
+
+    TodoStats:
+      type: object
+      properties:
+        total:
+          type: integer
+          description: 总事项数
+          example: 20
+        pending:
+          type: integer
+          description: 待办事项数
+          example: 15
+        completed:
+          type: integer
+          description: 已完成事项数
+          example: 5
+        completion_rate:
+          type: number
+          format: float
+          description: 完成率（0-1）
+          example: 0.25
+
+    TodoStatsResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/TodoStats'
