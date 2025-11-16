@@ -8,6 +8,7 @@ import (
 	"RemindGo/internal/handler"
 	"RemindGo/internal/middleware"
 	"RemindGo/internal/router"
+	"RemindGo/internal/service"
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/app/server"
@@ -31,9 +32,13 @@ func main() {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
 
-	// 初始化Handler
-	userHandler := handler.NewUserHandler(db)
-	todoHandler := handler.NewTodoHandler(db)
+	// 初始化Service层
+	userService := service.NewUserService(db)
+	todoService := service.NewTodoService(db)
+
+	// 初始化Handler层
+	userHandler := handler.NewUserHandler(userService)
+	todoHandler := handler.NewTodoHandler(todoService)
 
 	// 初始化JWT中间件
 	jwtMiddleware, err := middleware.NewJWTMiddleware(db)

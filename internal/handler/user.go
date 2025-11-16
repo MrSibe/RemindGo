@@ -5,20 +5,19 @@ import (
 
 	"RemindGo/internal/middleware"
 	"RemindGo/internal/model"
+	"RemindGo/internal/service"
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
-	"golang.org/x/crypto/bcrypt"
-	"gorm.io/gorm"
 )
 
 type UserHandler struct {
-	db *gorm.DB
+	userService *service.UserService
 }
 
 // NewUserHandler 创建用户处理器
-func NewUserHandler(db *gorm.DB) *UserHandler {
-	return &UserHandler{db: db}
+func NewUserHandler(userService *service.UserService) *UserHandler {
+	return &UserHandler{userService: userService}
 }
 
 // Register 用户注册
@@ -33,49 +32,17 @@ func (h *UserHandler) Register(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	// 检查用户名是否已存在
-	var existingUser model.User
-	if err := h.db.Where("username = ?", req.Username).First(&existingUser).Error; err == nil {
-		c.JSON(consts.StatusConflict, model.BaseResponse{
-			Status: consts.StatusConflict,
-			Msg:    "用户名已存在",
-			Data:   nil,
-		})
-		return
-	}
-
-	// 检查邮箱是否已存在
-	if err := h.db.Where("email = ?", req.Email).First(&existingUser).Error; err == nil {
-		c.JSON(consts.StatusConflict, model.BaseResponse{
-			Status: consts.StatusConflict,
-			Msg:    "邮箱已被使用",
-			Data:   nil,
-		})
-		return
-	}
-
-	// 加密密码
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	// 调用service层注册用户
+	user, err := h.userService.Register(&req)
 	if err != nil {
-		c.JSON(consts.StatusInternalServerError, model.BaseResponse{
-			Status: consts.StatusInternalServerError,
-			Msg:    "服务器错误",
-			Data:   nil,
-		})
-		return
-	}
-
-	// 创建用户
-	user := model.User{
-		Username:     req.Username,
-		Email:        req.Email,
-		PasswordHash: string(hashedPassword),
-	}
-
-	if err := h.db.Create(&user).Error; err != nil {
-		c.JSON(consts.StatusInternalServerError, model.BaseResponse{
-			Status: consts.StatusInternalServerError,
-			Msg:    "创建用户失败",
+		// 根据错误类型返回不同状态码
+		status := consts.StatusInternalServerError
+		if err.Error() == "用户名已存在" || err.Error() == "邮箱已被使用" {
+			status = consts.StatusConflict
+		}
+		c.JSON(status, model.BaseResponse{
+			Status: status,
+			Msg:    err.Error(),
 			Data:   nil,
 		})
 		return
@@ -120,11 +87,12 @@ func (h *UserHandler) GetProfile(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	var user model.User
-	if err := h.db.First(&user, userID).Error; err != nil {
+	// 调用service层获取用户信息
+	user, err := h.userService.GetUserByID(userID)
+	if err != nil {
 		c.JSON(consts.StatusNotFound, model.BaseResponse{
 			Status: consts.StatusNotFound,
-			Msg:    "用户不存在",
+			Msg:    err.Error(),
 			Data:   nil,
 		})
 		return
@@ -164,60 +132,22 @@ func (h *UserHandler) UpdateProfile(ctx context.Context, c *app.RequestContext) 
 		return
 	}
 
-	var user model.User
-	if err := h.db.First(&user, userID).Error; err != nil {
-		c.JSON(consts.StatusNotFound, model.BaseResponse{
-			Status: consts.StatusNotFound,
-			Msg:    "用户不存在",
+	// 调用service层更新用户信息
+	user, err := h.userService.UpdateUser(userID, &req)
+	if err != nil {
+		status := consts.StatusInternalServerError
+		if err.Error() == "用户不存在" {
+			status = consts.StatusNotFound
+		} else if err.Error() == "用户名已被占用" || err.Error() == "邮箱已被占用" {
+			status = consts.StatusConflict
+		}
+		c.JSON(status, model.BaseResponse{
+			Status: status,
+			Msg:    err.Error(),
 			Data:   nil,
 		})
 		return
 	}
-
-	// 更新字段
-	updates := make(map[string]interface{})
-	if req.Username != nil {
-		// 检查用户名是否已被占用
-		var existingUser model.User
-		if err := h.db.Where("username = ? AND id != ?", *req.Username, userID).First(&existingUser).Error; err == nil {
-			c.JSON(consts.StatusConflict, model.BaseResponse{
-				Status: consts.StatusConflict,
-				Msg:    "用户名已被占用",
-				Data:   nil,
-			})
-			return
-		}
-		updates["username"] = *req.Username
-	}
-
-	if req.Email != nil {
-		// 检查邮箱是否已被占用
-		var existingUser model.User
-		if err := h.db.Where("email = ? AND id != ?", *req.Email, userID).First(&existingUser).Error; err == nil {
-			c.JSON(consts.StatusConflict, model.BaseResponse{
-				Status: consts.StatusConflict,
-				Msg:    "邮箱已被占用",
-				Data:   nil,
-			})
-			return
-		}
-		updates["email"] = *req.Email
-	}
-
-	// 执行更新
-	if len(updates) > 0 {
-		if err := h.db.Model(&user).Updates(updates).Error; err != nil {
-			c.JSON(consts.StatusInternalServerError, model.BaseResponse{
-				Status: consts.StatusInternalServerError,
-				Msg:    "更新失败",
-				Data:   nil,
-			})
-			return
-		}
-	}
-
-	// 重新查询用户信息
-	h.db.First(&user, userID)
 
 	c.JSON(consts.StatusOK, model.BaseResponse{
 		Status: consts.StatusOK,
